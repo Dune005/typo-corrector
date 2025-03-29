@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend          # Pfad zum Backend Dockerfile
+    ports:
+      - "5001:5000"         # Mappt Host-Port 5001 auf Container-Port 5000 (Host-Port geändert)
+    volumes:
+      - ./backend:/app      # Mountet lokalen Code ins Container-Verzeichnis für Live-Reload
+    environment:
+      - FLASK_ENV=development # Aktiviert Flask Debug Modus (automatischer Neustart bei Änderungen)
+      - FLASK_APP=app.py      # Explizit die App-Datei angeben
+
+  frontend:
+    build: ./frontend         # Pfad zum Frontend Dockerfile
+    ports:
+      - "3001:3000"         # Mappt Host-Port 3001 auf Container-Port 3000 (Nuxt default)
+    volumes:
+      - ./frontend:/app       # Mountet lokalen Code für HMR (Hot Module Replacement)
+      - /app/node_modules   # Wichtig: Verhindert, dass lokaler node_modules Ordner den im Container überschreibt
+    depends_on:
+      - backend             # Startet Backend bevor Frontend (optional, aber gute Praxis)
+
+# Optional: Netzwerk definieren, wenn spezielle Konfiguration nötig (oft nicht für einfache Setups)
+# networks:
+#   app-network:
+#     driver: bridge
