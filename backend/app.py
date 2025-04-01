@@ -1,6 +1,6 @@
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
-from corrections import apply_corrections # Importiere die Korrekturfunktion
+from corrections.casual_rules import apply_corrections # Importiere die Korrekturfunktion aus dem neuen Modul
 
 app = Flask(__name__)
 # Erlaube Anfragen vom Frontend (läuft auf anderem Port/Container)
