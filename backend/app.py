@@ -32,8 +32,11 @@ def correct_text_endpoint():
          # Wenn 'text' ein leerer String ist, direkt zurückgeben
          return jsonify({"corrected_text": ""})
 
+    # Lese den preserve_formatting Parameter (optional)
+    preserve_formatting = data.get('preserve_formatting', False)
+
     # Wende die Korrekturen an
-    corrected_text = apply_corrections(text_to_correct)
+    corrected_text = apply_corrections(text_to_correct, preserve_formatting)
 
     return jsonify({"corrected_text": corrected_text})
 

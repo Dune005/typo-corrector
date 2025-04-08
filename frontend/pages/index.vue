@@ -1,6 +1,7 @@
 <template>
   <div class="container">
     <h1>Typo-Corrector MVP</h1>
+    
     <div class="text-areas">
       <div class="area">
         <label for="input-text">Eingabe:</label>
@@ -15,7 +16,10 @@
       {{ isLoading ? 'Korrigiere...' : 'Korrigieren' }}
     </button>
     <p v-if="error" class="error-message">{{ error }}</p>
+    
+    <NuxtLink to="/experiment">Zur Experimentierseite</NuxtLink>
   </div>
+  
 </template>
 
 <script setup>
