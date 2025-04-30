@@ -40,6 +40,27 @@
             v-model="inputText"
             placeholder="Text hier eingeben..."
           ></textarea>
+          <div class="textarea-footer">
+            <div class="settings-container">
+              <div class="settings-icon" @click="toggleSettings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+                <span>Optionen</span>
+              </div>
+
+              <!-- Settings Panel -->
+              <div class="settings-panel" v-if="showSettings">
+                <div class="settings-option">
+                  <input type="checkbox" id="preserve-formatting" v-model="preserveFormatting">
+                  <label for="preserve-formatting">Formatierung beibehalten</label>
+                </div>
+                <!-- Hier können in Zukunft weitere Optionen hinzugefügt werden -->
+              </div>
+            </div>
+            <div class="character-count">{{ inputText.length }} Zeichen</div>
+          </div>
         </div>
         <div class="text-area-container">
           <label for="output-text">Ausgabe</label>
@@ -49,48 +70,27 @@
             placeholder="Korrigierter Text..."
             readonly
           ></textarea>
-          <div class="copy-icon" @click="copyToClipboard" v-if="outputText">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
+          <div class="copy-button-container" v-if="outputText">
+            <button class="copy-button" @click="copyToClipboard">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+            </button>
+            <div class="copy-notification" v-if="showCopyNotification">Text kopiert!</div>
           </div>
         </div>
       </div>
 
-      <!-- Controls Container -->
-      <div class="controls-container">
-        <!-- Settings Icon (Left aligned) -->
-        <div class="settings-container">
-          <div class="settings-icon" @click="toggleSettings">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
-            <span>Optionen</span>
-          </div>
-
-          <!-- Settings Panel -->
-          <div class="settings-panel" v-if="showSettings">
-            <h3>Einstellungen</h3>
-            <div class="settings-option">
-              <input type="checkbox" id="preserve-formatting" v-model="preserveFormatting">
-              <label for="preserve-formatting">Formatierung beibehalten</label>
-            </div>
-            <!-- Hier können in Zukunft weitere Optionen hinzugefügt werden -->
-          </div>
-        </div>
-
-        <!-- Correct Button (Center aligned) -->
-        <div class="button-container">
-          <button
-            class="correct-button"
-            @click="correctText"
-            :disabled="isLoading"
-          >
-            {{ isLoading ? 'Correcting...' : 'Correct' }}
-          </button>
-        </div>
+      <!-- Button Container -->
+      <div class="button-container">
+        <button
+          class="correct-button"
+          @click="correctText"
+          :disabled="isLoading"
+        >
+          {{ isLoading ? 'Correcting...' : 'Correct' }}
+        </button>
       </div>
 
       <!-- Error Message -->
@@ -121,6 +121,7 @@ const isLoading = ref(false);
 const error = ref('');
 const preserveFormatting = ref(false);
 const showSettings = ref(false);
+const showCopyNotification = ref(false);
 
 // Funktion zum Ein-/Ausblenden der Einstellungen
 function toggleSettings() {
@@ -153,7 +154,10 @@ function copyToClipboard() {
   if (outputText.value) {
     navigator.clipboard.writeText(outputText.value)
       .then(() => {
-        alert('Text copied to clipboard!');
+        showCopyNotification.value = true;
+        setTimeout(() => {
+          showCopyNotification.value = false;
+        }, 2000); // Ausblenden nach 2 Sekunden
       })
       .catch(err => {
         console.error('Failed to copy text: ', err);
@@ -369,6 +373,7 @@ main {
 .mode-button.disabled {
   opacity: 0.6;
   cursor: not-allowed;
+
 }
 
 /* Text Areas */
@@ -408,57 +413,96 @@ textarea {
   background-color: #f8fafc;
 }
 
+.textarea-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.character-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: grey;
+}
+
 textarea:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
 }
 
-.copy-icon {
+.copy-button-container {
   position: absolute;
   bottom: 36px;
   right: 36px;
-  cursor: pointer;
-  background-color: white;
-  border-radius: 50%;
-  padding: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.copy-icon:hover {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* Controls Container */
-.controls-container {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  width: 100%;
-  max-width: 1200px;
-  margin: 20px auto;
-  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+}
+
+.copy-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: black;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  width: 40px;
+  height: 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.copy-notification {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  animation: fadeInOut 2s ease;
+  z-index: 2;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  15% { opacity: 1; transform: translate(-50%, 0); }
+  85% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -10px); }
+}
+
+/* Button Container */
+.button-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px auto;
 }
 
 /* Settings Container */
 .settings-container {
   position: relative;
-  grid-column: 1;
-  justify-self: start;
 }
 
 .settings-icon {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background-color: #f8fafc;
-  padding: 8px 16px;
-  border-radius: 8px;
+  padding: 4px 10px;
+  border-radius: 6px;
   border: 1px solid #e2e8f0;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.8rem;
 }
 
 .settings-icon:hover {
@@ -479,23 +523,15 @@ textarea:focus {
 .settings-panel {
   position: absolute;
   top: 100%;
-  width: 300px;
+  left: 0;
+  width: 250px;
   background-color: white;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  padding: 16px;
-  margin-top: 8px;
+  padding: 10px;
+  margin-top: 4px;
   z-index: 10;
-}
-
-.settings-panel h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
-  font-size: 1.1rem;
-  color: var(--text-color);
-  border-bottom: 1px solid #e2e8f0;
-  padding-bottom: 8px;
 }
 
 .settings-option {
@@ -516,11 +552,6 @@ textarea:focus {
 }
 
 /* Correct Button */
-.button-container {
-  display: flex;
-  justify-content: center;
-  grid-column: 2;
-}
 
 .correct-button {
   background: black;

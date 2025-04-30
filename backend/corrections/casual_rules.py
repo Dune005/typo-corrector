@@ -164,6 +164,7 @@ def apply_corrections(text, preserve_formatting=False):
     #    Passt Leerzeichen basierend auf den nun korrekten Zeichen an.
 
     # 5.1 Einzelnes Leerzeichen um Et-Zeichen (&), wenn es Wörter verbindet.
+    # Stellt sicher, dass ein Leerzeichen vor und nach dem & steht, ohne Buchstaben zu entfernen
     corrected_text = re.sub(r'(\w)\s*&\s*(\w)', r'\1 & \2', corrected_text)
     # 5.2 Einzelnes Leerzeichen um Bis-Strich (Gedankenstrich – U+2013) bei Bereichen.
     corrected_text = re.sub(r'([.\d/\-])\s*(–)\s*([.\d/\-])', r'\1 \2 \3', corrected_text)
@@ -206,55 +207,17 @@ def apply_corrections(text, preserve_formatting=False):
     #       Hinweis: Diese Regeln erhalten Leerzeichen bei Wortgruppen wie 'PHP Operator / C# Supporter',
     #       da der Slash dort nicht direkt von einem Nicht-Leerzeichen (\S) umgeben ist.
 
-    # --- BLOCK 8: Zahlenformatierung (Schweizer Stil - Fokus auf Tausendertrenner) ---
-    #    Ziel: Konsistente Tausendertrennung mit Leerzeichen (MVP-Entscheidung).
-    #    Hinweis: Kontextabhängiger Apostroph für Währung (z.B. CHF 10'000.-) wird NICHT implementiert.
-
-    # 8.1 Entfernt Kommas, die als Tausendertrenner zwischen Ziffern verwendet werden,
-    #     ABER NUR, wenn danach nicht genau 2 Ziffern folgen (um Dezimalkommas zu erhalten)
-    #     Beispiel: 10,000 -> 10000, aber 12,50 bleibt 12,50
-    corrected_text = re.sub(r'(\d),(?!\d{1,2}(?:\b|[,.;:!?]))', r'\1', corrected_text)
-
-    # 8.2 Entfernt Apostrophe, die als Tausendertrenner zwischen Ziffern verwendet werden.
-    #     Beispiel: 10'000 -> 10000 (Bereitet für korrekte Einfügung vor)
-    corrected_text = re.sub(r'(\d)\'(\d)', r'\1\2', corrected_text)
-
-    # 8.3 Entfernt Leerzeichen, die WAHRSCHEINLICH als Tausendertrenner dienen.
-    #     Sucht nach Leerzeichen zwischen Ziffern, denen genau 3 Ziffern folgen.
-    #     Vorsichtiger als einfaches Entfernen aller Leerzeichen zwischen Zahlen.
-    #     Beispiel: 10 000 -> 10000, aber "Call 123 456" bleibt eher unberührt.
-    corrected_text = re.sub(r'(\d) +(?=\d{3})', r'\1', corrected_text) # Lookahead (?=...) prüft, ohne zu konsumieren
-
-    # 8.4 Fügt einen typografischen Apostroph (’ U+2019) als Tausendertrenner ein (NEUER ANSATZ).
-    #     Trennt nur Zahlen >= 10000. Jahreszahlen (4 Ziffern) bleiben unberührt.
-    try:
-        # Funktion zum Einfügen des Apostroph-Trennzeichens
-        def insert_apostrophe_separator(match):
-            number_str = match.group(0)
-            # Nur Zahlen ab 10000 (5+ Ziffern) bearbeiten
-            if len(number_str) >= 5:
-                # Fügt ’ vor jede Gruppe von 3 Ziffern ein, die von einer Ziffer gefolgt wird,
-                # aber nicht am Anfang der Zahl steht.
-                # Vermeidet Trennung bei Dezimalzahlen.
-                return re.sub(r'(?<=\d)(?=(\d{3})+(?!\d*[,.])\b)', r'’', number_str)
-            else:
-                # Zahlen < 10000 bleiben unverändert
-                return number_str
-
-        # Finde alle Zahlen mit 5+ Ziffern und wende die Funktion darauf an.
-        # \b stellt sicher, dass wir ganze Zahlen erwischen.
-        corrected_text = re.sub(r'\b\d{5,}\b', insert_apostrophe_separator, corrected_text)
-
-    except re.error as e:
-        print(f"Regex Fehler bei Tausendertrenner-Einfügung (Block 8.4): {e}")
-        # Bei Fehler den Originaltext (vor diesem Block) weiterverwenden
-        # (corrected_text behält den Wert von vor dem try-Block)
-        pass
-
     # --- BLOCK 9: Schweizer Währungsformatierung (CHF) --- ÜBERARBEITET
     #    Ziel: Einheitliches Format "CHF Betrag.–" oder "CHF Betrag.xx"
+    #    WICHTIG: Währungsformatierung VOR Tausendertrennern durchführen!
 
     # 9.0 Vorbereitung: Ersetze alle Währungsvarianten durch CHF
+    # Speichere zuerst den Text, um später zu prüfen, ob es sich um einen Währungsbetrag handelt
+    original_text = corrected_text
+
+    # Prüfe, ob es sich um einen Währungsbetrag handelt
+    is_currency = re.search(r'\b(CHF|Fr\.?|SFr\.?|Franken)\s+\d', original_text)
+
     corrected_text = re.sub(r'\b(Fr\.?|SFr\.?)\b', 'CHF', corrected_text)
     corrected_text = re.sub(r'\bFranken\b', 'CHF', corrected_text)
 
@@ -279,13 +242,73 @@ def apply_corrections(text, preserve_formatting=False):
     corrected_text = re.sub(r'(\d)\s*\.(?:--|-)\b', r'\1.–', corrected_text)
 
     # 9.7 Ersetze normale Bindestriche mit Punkten bei Währungsbeträgen durch Halbgeviertstriche
-    #     z.B. "CHF 30.-" -> "CHF 30.–"
     corrected_text = re.sub(r'\b(CHF\s+\d+)\.-', r'\1.–', corrected_text)
 
     # 9.8 Ergänze ".–" bei ganzen CHF-Beträgen, die noch keine Endung haben
     #     (?![.,\d]) stellt sicher, dass keine Dezimalstellen folgen
     #     (?<!–) stellt sicher, dass nicht bereits ".–" vorhanden ist
-    corrected_text = re.sub(r'\b(CHF)\s+(\d+)(?![.,\d])(?<!–)\b', r'\1 \2.–', corrected_text)
+    #     KORRIGIERT: Erlaubt alle Apostrophe (', ‘, ’) innerhalb der Zahl.
+    corrected_text = re.sub(r'\b(CHF)\s+([\d\'‘’]+)(?![.,\d])(?<!–)\b', r'\1 \2.–', corrected_text)
+
+    # 9.9 Spezialfall: Korrigiere falsch formatierte Währungsbeträge mit Apostrophen
+    corrected_text = re.sub(r'\b(CHF)\s+(\d+)\.–\'(\d+)\.–', r"\1 \2'\3.–", corrected_text)
+
+    # 9.10 Spezialfall: Ersetze Apostrophe in Währungsbeträgen durch typografische Apostrophe (’)
+    # REAKTIVIERT und ERWEITERT: Behandelt ' und ‘ nur bei Währungen.
+    if is_currency:
+        # Ersetze gerade (') und linke (‘) Apostrophe durch typografische Apostrophe (’)
+        corrected_text = corrected_text.replace("'", "’") # U+0027 -> U+2019
+        corrected_text = corrected_text.replace("‘", "’") # U+2018 -> U+2019
+
+    # --- BLOCK 8: Zahlenformatierung (Schweizer Stil - Fokus auf Tausendertrenner) ---
+    #    Ziel: Konsistente Tausendertrennung mit Leerzeichen (MVP-Entscheidung).
+    #    Hinweis: Kontextabhängiger Apostroph für Währung (z.B. CHF 10'000.-) wird NICHT implementiert.
+
+    # 8.1 Entfernt Kommas, die als Tausendertrenner zwischen Ziffern verwendet werden,
+    #     ABER NUR, wenn danach nicht genau 2 Ziffern folgen (um Dezimalkommas zu erhalten)
+    #     Beispiel: 10,000 -> 10000, aber 12,50 bleibt 12,50
+    corrected_text = re.sub(r'(\d),(?!\d{1,2}(?:\b|[,.;:!?]))', r'\1', corrected_text)
+
+    # 8.2 Entfernt Apostrophe, die als Tausendertrenner zwischen Ziffern verwendet werden.
+    #     Beispiel: 10'000 -> 10000, 10‘000 -> 10000 (Bereitet für korrekte Einfügung vor)
+    #     Aber nur, wenn es sich nicht um einen Währungsbetrag handelt
+    if not is_currency:
+        # Entferne gerade (') und linke (‘) Apostrophe zwischen Ziffern
+        corrected_text = re.sub(r'(\d)[\'‘](\d)', r'\1\2', corrected_text)
+
+    # 8.3 Entfernt Leerzeichen, die WAHRSCHEINLICH als Tausendertrenner dienen.
+    #     Sucht nach Leerzeichen zwischen Ziffern, denen genau 3 Ziffern folgen.
+    #     Vorsichtiger als einfaches Entfernen aller Leerzeichen zwischen Zahlen.
+    #     Beispiel: 10 000 -> 10000, aber "Call 123 456" bleibt eher unberührt.
+    corrected_text = re.sub(r'(\d) +(?=\d{3})', r'\1', corrected_text) # Lookahead (?=...) prüft, ohne zu konsumieren
+
+    # 8.4 Fügt einen typografischen Apostroph (’ U+2019) als Tausendertrenner ein (NEUER ANSATZ).
+    try:
+        # Funktion zum Einfügen des Apostroph-Trennzeichens
+        def insert_apostrophe_separator(match):
+            number_str = match.group(0)
+            # Zahlen ab 1000 (4+ Ziffern) bearbeiten
+            if len(number_str) >= 4:
+                # Ersetze zuerst alle vorhandenen geraden (') und linken (‘) Apostrophe durch typografische Apostrophe (’)
+                number_str = number_str.replace("'", "’") # U+0027 -> U+2019
+                number_str = number_str.replace("‘", "’") # U+2018 -> U+2019
+                # Fügt ’ vor jede Gruppe von 3 Ziffern ein, die von einer Ziffer gefolgt wird,
+                # aber nicht am Anfang der Zahl steht.
+                # Vermeidet Trennung bei Dezimalzahlen.
+                return re.sub(r'(?<=\d)(?=(\d{3})+(?!\d*[,.])\b)', r'’', number_str)
+            else:
+                # Zahlen < 1000 bleiben unverändert
+                return number_str
+
+        # Finde alle Zahlen mit 4+ Ziffern und wende die Funktion darauf an.
+        # \b stellt sicher, dass wir ganze Zahlen erwischen.
+        corrected_text = re.sub(r'\b\d{4,}\b', insert_apostrophe_separator, corrected_text)
+
+    except re.error as e:
+        print(f"Regex Fehler bei Tausendertrenner-Einfügung (Block 8.4): {e}")
+        # Bei Fehler den Originaltext (vor diesem Block) weiterverwenden
+        # (corrected_text behält den Wert von vor dem try-Block)
+        pass
 
     # --- BLOCK X: Sonstige Korrekturen ---
 
@@ -297,8 +320,42 @@ def apply_corrections(text, preserve_formatting=False):
     corrected_text = re.sub(r'(\w+)-\n(\w+)', r'\1\2', corrected_text)
 
     # NEUE REGEL: X.3 Entfernt unerwünschte Trennstriche innerhalb von Wörtern
-    # Behält Bindestriche vor Grossbuchstaben bei.
+    # Behält Bindestriche vor Grossbuchstaben bei und in bestimmten englischen Begriffen.
+
+    # Schritt 1: Markiere Ausnahmen, bei denen der Bindestrich erhalten bleiben soll
+    # Liste der englischen Begriffe, bei denen der Bindestrich erhalten bleiben soll
+    patterns_to_preserve = [
+        r'\b[Ss]it-up(s)?\b',
+        r'\b[Pp]ush-up(s)?\b',
+        r'\b[Ww]arm-up(s)?\b',
+        r'\b[Cc]ool-down(s)?\b',
+        r'\b[Cc]heck-in(s)?\b',
+        r'\b[Ll]og-in(s)?\b',
+        r'\b[Ss]ign-in(s)?\b',
+        r'\b[Oo]pt-in(s)?\b',
+        r'\b[Oo]pt-out(s)?\b',
+        r'\b[Ll]og-out(s)?\b',
+        r'\b[Ss]ign-out(s)?\b',
+        r'\b[Cc]heck-out(s)?\b',
+        r'\b[Ss]tand-up(s)?\b',
+        r'\b[Ss]et-up(s)?\b',
+        r'\b[Ff]ollow-up(s)?\b',
+        r'\b[Bb]ack-up(s)?\b',
+        r'\b[Ss]tart-up(s)?\b'
+    ]
+
+    # Spezieller Platzhalter, der in normalen Texten unwahrscheinlich ist
+    placeholder = "___HYPHEN_PRESERVE___"
+
+    # Markiere alle zu erhaltenden Muster
+    for pattern in patterns_to_preserve:
+        corrected_text = re.sub(pattern, lambda m: m.group(0).replace('-', placeholder), corrected_text)
+
+    # Schritt 2: Wende die allgemeine Regel an, um andere Bindestriche zu entfernen
     corrected_text = re.sub(r'(\w)-([a-zäöüß])', r'\1\2', corrected_text)
+
+    # Schritt 3: Stelle die markierten Ausnahmen wieder her
+    corrected_text = corrected_text.replace(placeholder, '-')
 
     # X.3 Ersetzt ß durch ss (Schweizer Rechtschreibung).
     corrected_text = corrected_text.replace('ß', 'ss')
@@ -325,14 +382,16 @@ def apply_corrections(text, preserve_formatting=False):
     # X.7 Geschützte Leerzeichen um & (nicht-brechende Leerzeichen, U+00A0)
     # Beispiel: "Mix & Match" -> "Mix\u00A0&\u00A0Match"
 
-    # Schritt 1: Ersetze alle vorhandenen normalen Leerzeichen um & durch geschützte Leerzeichen
-    corrected_text = re.sub(r'(\S)\s+&', '\1\u00A0&', corrected_text) # Removed 'r' prefix
-    corrected_text = re.sub(r'&\s+(\S)', '&\u00A0\1', corrected_text) # Removed 'r' prefix
+    # WICHTIG: Diese Regeln werden NACH Regel 5.1 angewendet, die bereits normale Leerzeichen
+    # um das &-Zeichen einfügt. Diese Regeln ersetzen dann die normalen Leerzeichen durch
+    # geschützte Leerzeichen (non-breaking spaces).
 
-    # Schritt 2: Füge geschützte Leerzeichen ein, wo keine Leerzeichen sind, aber nur
-    # wenn & zwischen Wort-/Zahlenzeichen steht
-    corrected_text = re.sub(r'(\w)&', '\1\u00A0&', corrected_text) # Removed 'r' prefix
-    corrected_text = re.sub(r'&(\w)', '&\u00A0\1', corrected_text) # Removed 'r' prefix
+    # Schritt 1: Ersetze normale Leerzeichen vor und nach & durch geschützte Leerzeichen
+    # Wichtig: Wir suchen nach einem Muster mit Leerzeichen und ersetzen nur die Leerzeichen
+    # Verwenden eines normalen Strings (nicht raw string) für die Ersetzung mit Escape-Sequenz
+    # Verwenden von \b\w+\b, um das gesamte Wort zu erfassen, nicht nur den letzten Buchstaben
+    corrected_text = re.sub(r' &', '\u00A0&', corrected_text)
+    corrected_text = re.sub(r'& ', '&\u00A0', corrected_text)
 
     # X.8 Ersetzt numerische Brüche durch Unicode-Bruchzeichen
     # Definiere ein Dictionary mit häufigen Brüchen und ihren Unicode-Äquivalenten
